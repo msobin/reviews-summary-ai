@@ -12,7 +12,8 @@ final readonly class AnalyzeCommand
     public function __construct(
         public Uuid $uuid,
         /** @var array<Review> */
-        public array $reviews
+        public array $reviews,
+        public string $analyzer
     ) {
     }
 }

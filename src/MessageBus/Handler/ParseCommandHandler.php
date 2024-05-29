@@ -5,31 +5,36 @@ declare(strict_types=1);
 namespace App\MessageBus\Handler;
 
 use App\MessageBus\Message\AnalyzeCommand;
-use App\MessageBus\Message\AnalyzerResult;
 use App\MessageBus\Message\ParseCommand;
-use App\Service\ReviewParser\ParserCollection;
+use App\Service\ReviewAnalyzer\ChatGptReviewsAnalyzer;
+use App\Service\ReviewParser\ParsersFactory;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 
 #[AsMessageHandler]
 readonly final class ParseCommandHandler
 {
-    public function __construct(private MessageBusInterface $messageBus, private ParserCollection $parserCollection)
-    {
+    public function __construct(
+        private MessageBusInterface $messageBus,
+        private ParsersFactory $parsersFactory,
+        private CacheInterface $cache
+    ) {
     }
 
     public function __invoke(ParseCommand $parseMessage): void
     {
-        try {
-            $parser = $this->parserCollection->getParser($parseMessage->url);
-        } catch (\InvalidArgumentException $e) {
-            $this->messageBus->dispatch(new AnalyzerResult($parseMessage->uuid, $e->getMessage()));
+        $parser = $this->parsersFactory->getParser($parseMessage->url);
 
-            return;
-        }
+        $cacheKey = md5($parser::class . $parseMessage->url);
 
-        $review = $parser->parse($parseMessage->url);
+        $reviews = $this->cache->get($cacheKey, function (ItemInterface $item) use ($parseMessage, $parser) {
+            $item->expiresAfter(3600);
 
-        $this->messageBus->dispatch(new AnalyzeCommand($parseMessage->uuid, $review));
+            return $parser->parse($parseMessage->url);
+        });
+
+        $this->messageBus->dispatch(new AnalyzeCommand($parseMessage->uuid, $reviews, ChatGptReviewsAnalyzer::getName()));
     }
 }

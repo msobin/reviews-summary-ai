@@ -45,6 +45,15 @@ services:
       - "15673:15672"
 ```
 
-### Usage
+### Roadmap
 
+* Caching
+* Logs
+* ~~Wildberries parser~~, Ozon parser
+* ~~ChatGPT analyzer~~, YandexGPT analyzer
+* Interface for configuring analyzers and parsers
+* Telegram webhooks
+* Users and profiles
+
+### Usage
 

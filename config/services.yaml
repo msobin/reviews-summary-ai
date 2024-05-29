@@ -20,9 +20,5 @@ services:
             - '../src/Entity/'
             - '../src/Kernel.php'
 
-    chat_gpt:
-        class: App\Service\ReviewAnalyzer\ChatGptReviewAnalyzer
-        tags: ['app.review_analyzer']
-
     App\Service\UserRequest\RequestStorageInterface:
         class: App\Service\UserRequest\CacheRequestStorage

@@ -4,26 +4,30 @@ declare(strict_types=1);
 
 namespace App\Service\ReviewAnalyzer;
 
+use App\Service\ConfigService;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
-class ChatGptReviewAnalyzer implements ReviewAnalyzerInterface
+class ChatGptReviewsAnalyzer extends BaseReviewsAnalyzer
 {
     private Client $client;
 
-    public function __construct(
-        #[Autowire(env: 'OPENAI_API_KEY')] string $apiKey,
-        #[Autowire(env: 'SYSTEM_PROMPT')] private string $systemPrompt,
-        #[Autowire(env: 'USER_PROMPT')] private string $userPrompt,
-    ) {
+    public function __construct(private readonly ConfigService $configService)
+    {
+        parent::__construct($configService);
+
         $this->client = new Client([
             'base_uri' => 'https://api.openai.com',
             'headers' => [
                 'Content-Type' => 'application/json',
-                'Authorization' => 'Bearer ' . $apiKey,
+                'Authorization' => 'Bearer ' . $this->getConfigKey('api_key'),
             ]
         ]);
+    }
+
+    public static function getName(): string
+    {
+        return 'chat_gpt';
     }
 
     /**
@@ -31,7 +35,11 @@ class ChatGptReviewAnalyzer implements ReviewAnalyzerInterface
      */
     public function analyze(array $reviews): string
     {
-        $reviews = array_slice($reviews, 0, 100);       // @todo debug
+        $reviews = array_slice($reviews, 0, 200);
+
+        if (!$reviews) {
+            return 'No reviews to analyze';
+        }
 
         $reviewContent = '';
         foreach ($reviews as $review) {
@@ -48,11 +56,11 @@ class ChatGptReviewAnalyzer implements ReviewAnalyzerInterface
                 'messages' => [
                     [
                         'role' => 'system',
-                        'content' => $this->systemPrompt,
+                        'content' => $this->getConfigKey('system_prompt'),
                     ],
                     [
                         'role' => 'user',
-                        'content' => $this->userPrompt . $reviewContent,
+                        'content' => $this->getConfigKey('user_prompt') . $reviewContent,
                     ],
                 ],
             ],
