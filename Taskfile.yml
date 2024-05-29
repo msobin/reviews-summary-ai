@@ -1,0 +1,83 @@
+version: '3'
+
+vars:
+  PHP: "{{if not .LOCALLY}}docker compose exec -it php{{end}}"
+  SH: "{{if not .LOCALLY}}docker compose exec -it php{{end}}"
+
+env:
+  APP_ENV: dev
+
+dotenv:
+  - '.env.{{.APP_ENV}}.local'
+  - '.env.{{.APP_ENV}}'
+  - '.env.local'
+  - '.env'
+
+tasks:
+  up-dev:
+    cmds:
+      - docker compose up --build --remove-orphans
+
+  up:
+    cmds:
+      - docker compose up --build --detach --remove-orphans
+      - task: composer-install
+
+  db:
+    deps: [composer-install]
+    cmds:
+      - "{{.PHP}} bin/console doctrine:database:create --if-not-exists"
+      - "{{.PHP}} bin/console doctrine:migrations:migrate --no-interaction"
+
+  diff: "{{.PHP}} bin/console doctrine:migrations:diff"
+
+  migrate: "{{.PHP}} bin/console doctrine:migrations:migrate"
+
+  composer-install:
+    cmd: "{{.PHP}} composer install"
+    sources:
+      - composer.json
+      - composer.lock
+    generates:
+      - vendor/autoload.php
+
+  composer-validate: "{{.PHP}} composer validate --strict --no-check-publish"
+
+  composer-require:
+    deps: [composer-install]
+    cmd: "{{.PHP}} vendor/bin/composer-require-checker check"
+
+  composer-unused:
+    deps: [composer-install]
+    cmd: "{{.PHP}} vendor/bin/composer-unused"
+
+  composer-audit: "{{.PHP}} composer audit"
+
+  composer-normalize:
+    deps: [composer-install]
+    cmds:
+      - "{{.PHP}} composer bump --dry-run"
+      - "{{.PHP}} composer normalize --dry-run --diff"
+
+  composer-normalize-fix:
+    deps: [composer-install]
+    cmds:
+      - "{{.PHP}} composer bump"
+      - "{{.PHP}} composer normalize"
+
+  stop: docker compose stop
+
+  down: docker compose down --remove-orphans --volumes
+
+  chown: sudo chown -R $USER:$USER .
+
+  bash: "{{.PHP}} bash"
+
+  check:
+    cmds:
+      - ./vendor/bin/phpstan analyse
+#      - task: composer-validate
+#      - task: composer-require
+#      - task: composer-unused
+#      - task: composer-audit
+#      - task: composer-normalize

@@ -1,0 +1,41 @@
+services:
+  php:
+    build:
+      context: docker/php
+    environment:
+      HISTFILE: /root/history/.history
+      ENV: /root/.bashrc
+    volumes:
+      - .:/var/www/html:cached
+      - php_socket:/var/run/php
+      - php_history:/root/history
+      - ./docker/php/php.ini:/usr/local/etc/php/conf.d/php-dev.ini:ro
+      - ./docker/php/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini:ro
+      - ./docker/supervisord.conf:/etc/supervisor/supervisord.conf:ro
+
+  nginx:
+    image: nginx:1.24-alpine3.17
+    depends_on:
+      - php
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./public/:/var/www/html/public:ro
+      - php_socket:/var/run/php
+    ports:
+      - "80:80"
+
+  rabbitmq:
+    image: rabbitmq:3.12.14-management-alpine
+    environment:
+      - RABBITMQ_DEFAULT_USER=rmuser
+      - RABBITMQ_DEFAULT_PASS=rmpassword
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq
+
+  redis:
+    image: redis:7.2.5-alpine
+
+volumes:
+  php_history: ~
+  php_socket: ~
+  rabbitmq: ~
